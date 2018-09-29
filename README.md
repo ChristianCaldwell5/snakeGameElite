@@ -1,2 +1,2 @@
 # snakeGameElite
-Enhanced Snake Game Used for Game Development
+Enhanced Snake Game Used for Game Development Learning
