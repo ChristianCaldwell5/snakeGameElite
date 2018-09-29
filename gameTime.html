@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+
+<html>
+
+    <head>
+    
+        <title>Snake Game ELITE</title>
+        <link rel="stylesheet" type="text/css" href="game.css">
+        <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+    
+    </head>
+    
+    <body>
+        
+        <!-- Body border -->
+        <div id="left"></div>
+        <div id="right"></div>
+        <div id="top"></div>
+        <div id="bottom"></div>
+        <div class="rain">
+            
+            <div id="hiddenMargin"></div>
+        
+            <canvas id="gameBoard" width="400" height="400"></canvas>
+            
+        </div>
+        
+        <!-- GAME SCRIPT HERE -->
+        
+        <script>
+        
+            $(document).ready(function(){
+                //Initialize the game board and set variables for width and height.
+                var canvas = $("#gameBoard")[0]; //set the variable canvas with the parameters of the gameBoard ID. We can now reload/paint/initialize the game board with the same height and colors.
+                var ctx = canvas.getContext("2d");
+                var w = $("#gameBoard").width();
+                var h = $("#gameBoard").height();
+
+                //create easy to use variables. cw = cell width. cell width = squar size
+                var cw = 10;
+                var d;
+                var crown;
+                var score;
+                var level;
+
+                //the snake is nothing but an array of cells. We add a cell once a 'crown' is captured.
+                var snake_array; //an array of cells to make up the snake. snake will increase 10px everytime crown captured
+                var defender_array; //an array of defenders
+                
+                //prepare the game/objects in game
+                function startGame()
+                {
+                    d = "down"; //default direction
+                    def = 1; //initial number of crown defenders
+//                    create_clear(); //token that clears arena after you get to phase four
+                    create_snake(); //create and update snake.
+                    create_crown(); //generate crown on game board 
+                    create_defenders(def); //create obstacles the snake must move around and avoid.
+                    //finally lets display the score
+                    score = 0; //initialize score to zero for the start
+                    phase = 0; //once phase hits four, you have the chance to clear the arena of defenders back to one. If cleared. set back to 0
+                    pow = 4
+                 level = 1;
+
+                    //move the snake and paint every 60ms
+                    if(typeof game_loop != "undefined") clearInterval(game_loop);
+                    game_loop = setInterval(paint, 100);
+                }
+                startGame();
+                
+                //CREATE THE SNAKE
+                function create_snake()
+                {
+                    var length = 5; //Length of the initil snake
+                    snake_array = []; //Empty array of cells
+                    for(var i = length-1; i>=0; i--) //create snake and initialize position
+                    {
+                        //This will create a horizontal snake starting from the top left
+                        snake_array.push({x: i, y:0});
+                    }
+                }
+                
+                //CREATE THE CROWNS
+                //Create Crown. Suprisingly, the syntax is a lot easier than I thought to create a token/cell
+                function create_crown()
+                {
+                    crown = {
+                        x: Math.round(Math.random()*(w-cw)/cw), 
+                        y: Math.round(Math.random()*(h-cw)/cw), 
+                    };
+                    //This will create a cell with x/y between 0-39
+                    //Because there are 4(400/10) positions accross the rows and columns
+                }
+                
+                //CREATE CROWN DEFENDERS. crown defenders double for every crown captured!!!
+                function create_defenders(def)
+                {
+                    console.log("def " + def);
+                    i = 0;
+                    defender_array = [];
+                    while(i<def){
+                       defender_array.push({
+                            x: Math.round(Math.random()*(w-cw)/cw), 
+                            y: Math.round(Math.random()*(h-cw)/cw), 
+                        }); 
+                        i++;
+                    }
+                    
+                }
+                
+                //For every four crowns the player gets, this function will be called to add a powerup token to the gameboard.
+                function create_clear()
+                {   
+                    //the powerup cell allows you to clear defenders back to one. Available at phase 4 or greater
+                    powerup = {
+                        x: Math.round(Math.random()*(w-cw)/cw), 
+                        y: Math.round(Math.random()*(h-cw)/cw), 
+                    }; 
+                }
+
+                //Paint the snake black
+                function paint()
+                {
+                    //Recolor the canvas while the snake moves
+                    ctx.fillStyle = "white";
+                    ctx.fillRect(0, 0, w, h);
+                    ctx.strokeStyle = "black";
+                    ctx.strokeRect(0, 0, w, h);
+
+                    //The movement code for the snake starts here
+                    //Pop out the tail cell and place it infront of the head cell
+                    var nx = snake_array[0].x;
+                    var ny = snake_array[0].y;
+                    //This was the position of the head cell
+                    //Directional movement (What are we repainting?)
+                    if(d == "right") nx++; //increment the snake head cell one to the right. (Every 60ms as described )
+                    else if(d == "left") nx--; //increment the snake head cell one to the left. (Every 60ms as described )
+                    else if(d == "up") ny--; //increment the snake head cell one up. (Every 60ms as described )
+                    else if(d == "down") ny++; //increment the snake head cell one to the right. (Every 60ms as described )
+
+                    //Game Over clauses 
+                    //Restart the game if the snake hits a wall
+                    //Restart the game if the snake collides with itself
+                    //first nx is the snake array for x-axis (width)...does it go out the left boundary?
+                    //second condition: does the snake go outside the right boundary? (40 cells)
+                    //second ny is the snake array for y-axis (height)...does it go out the top boundary?
+                    //fourth condition: does the  snake array go outside of the bottom boundary? (40 cells)
+                    //fifth condition: does the snake collide with itself?
+                    //sixth condition: does the snake collide with a defender?
+                    if(nx == -1 || nx == w/cw || ny == -1 || ny == h/cw || check_collision(nx, ny, snake_array) || 
+                      check_hitDefender(nx, ny, snake_array, defender_array))
+                    {
+                        //restart the game
+                        startGame();
+                        return;
+                    }
+
+                    //Function to allow the snake to collect crowns
+                    //This function essentially checks if the snakes head is on the same cell as a crown
+                    //If so...dont move that tail, but create a new head. (Essentially add a cell)
+                    //Further action if snake collects crown
+                    if(nx == crown.x && ny == crown.y)
+                    {
+                        var tail = {x: nx, y: ny};
+                        score++;
+                        phase++;
+                        def = def * 2;
+                        pow = pow - 1;
+                        
+                        if(phase >= 4){
+                            create_clear();
+//                            paint_cell(powerup.x, powerup.y, "green");
+                        }
+
+                        //Create new crown on the gameBoard
+                        create_crown();
+                        create_defenders(def);
+                    }
+                    //if the head does not collect the crown update the snake 
+                    else
+                    {
+                        var tail = snake_array.pop(); //pops out the last cell
+                        tail.x = nx; tail.y = ny;
+                    }
+                    
+                    //Every four crowns, create a powerup token and place it on the map 
+                    if( phase >= 4){
+                        if(nx == powerup.x && ny == powerup.y)
+                        {
+                            phase = 0;
+                            r = def;
+                            def = 1;
+                            create_defenders(def);
+                            pow = 4;
+                        }
+                    }
+                    
+                    snake_array.unshift(tail); //puts back the tail as the first cell
+                    
+                    //Paint the snake BLACK
+                    for(var i = 0; i < snake_array.length; i++)
+                    {
+                        var c = snake_array[i];
+                        //paint the 10px wide cells to paint the snake
+                        paint_cell(c.x, c.y, "black");
+                    }
+                    
+                    //Paint the defenders BLUE
+                    for(var i = 0; i < def; i++)
+                    {
+                        var de = defender_array[i];
+                        //paint the 10px wide cells to paint the snake
+                        paint_cell(de.x, de.y, "blue");
+                    }
+
+                    //painting the crowns
+                    paint_cell(crown.x, crown.y, "purple");
+                    if(phase >= 4){
+                        paint_cell(powerup.x, powerup.y, "green");
+                    }
+                    //paint defender And paint the score
+                    var score_text = "Crowns Collected: " + score;
+                    var level_text = "Defenders on Patrol: " + def;
+                    //change the power up text based on whether the powerup is available or not. If not, show number of crowns needed.
+                    if(pow != 0){
+                        var power_up = "Powerup Available after: " + pow + " crowns";
+                    }
+                    else{
+                        var power_up = "Powerup Available NOW!";
+                    }
+                    
+                    //display the text and format the spacing
+                    ctx.fillText(score_text, 5, h-5);
+                    ctx.fillText(level_text, 110, h-5);
+                    ctx.fillText(power_up, 225, h-5);
+                }
+
+                //function to paint cells (Snake, crown, defender are sent here)
+                function paint_cell(x, y, color)
+                {
+                    ctx.fillStyle = color;
+                    ctx.fillRect(x*cw, y*cw, cw, cw);
+                    ctx.strokeStyle = "white";
+                    ctx.strokeRect(x*cw, y*cw, cw, cw);
+                }
+                
+                // This will return true if the snake hits itself
+                function check_collision(x, y, array)
+                {
+                    for(var i = 0; i < array.length; i++)
+                    {
+                        if(array[i].x == x && array[i].y == y)
+                        return true;
+                    }
+                    return false;
+                }
+                
+                //This will return true if the snake hits a defender
+                function check_hitDefender(x, y, array, dfarray)
+                {
+                    
+                    //check if the snake hits a defender
+                    for( var i = 0; i < array.length; i++)
+                    {
+                        for( var r = 0; r < dfarray.length; r++)
+                        {
+                            if(array[i].x == dfarray[r].x && array[i].y == dfarray[r].y)
+                            {
+                                return true;
+                            } 
+                        }
+                    }
+                    return false;
+                    
+                }
+
+                //keyboard controls
+                $(document).keydown(function(e){
+                    var key = e.which;
+                    //prevent reverse gear
+                    if(key == "37" && d != "right") d = "left"; //37 is left arrow key
+                    else if(key == "38" && d != "down") d = "up"; //38 is the down arrow
+                    else if(key == "39" && d != "left") d = "right"; //39 is the right arrow
+                    else if(key == "40" && d != "up") d = "down"; //40 is the up arrow
+                })
+
+            })
+        
+        </script>
+    
+    </body>
+
+</html>
